@@ -50,11 +50,13 @@ func (c *kafkaCollector) Collect(ch chan<- prometheus.Metric) {
         var kafkaConsumer sarama.Consumer
 	var err error
 	var partitions []int32
+	var partitionConsumer  sarama.PartitionConsumer
         kafkaConsumer, err = sarama.NewConsumer(strings.Split(*kafkaAddr, ","), nil)
 	if err != nil {
-		log.Fatalln("Failed to start Sarama consumer:", err)
+		log.Error("Failed to start Sarama consumer:", err)
+		ch <- prometheus.MustNewConstMetric(c.upIndicator, prometheus.GaugeValue, 0)
+		return
 	}
-	
 	ch <- prometheus.MustNewConstMetric(c.upIndicator, prometheus.GaugeValue, 1)
 	topics, err = kafkaConsumer.Topics()
 	if err !=nil {
@@ -63,8 +65,18 @@ func (c *kafkaCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 	ch <- prometheus.MustNewConstMetric(c.topicsCount, prometheus.GaugeValue, float64(len(topics)))
 	for _, topic := range topics{
-		partitions,_ = kafkaConsumer.Partitions(topic)
+		partitions, err = kafkaConsumer.Partitions(topic)
 		ch <- prometheus.MustNewConstMetric(c.partitionsCount, prometheus.GaugeValue,float64(len(partitions)), topic)
-
+		for _, partition := range partitions {
+			partitionConsumer, err = kafkaConsumer.ConsumePartition(topic, partition, sarama.OffsetOldest)
+			if err!=nil {
+				log.Error(err)
+			}
+			//for msg := range partitionConsumer.Messages() {	
+			//	log.Info(msg)
+			//}
+			partitionConsumer.Close()
+		}
 	}
+	kafkaConsumer.Close()
 }
