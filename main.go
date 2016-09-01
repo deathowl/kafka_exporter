@@ -24,7 +24,7 @@ func init() {
 var logLevel log.Level = log.InfoLevel
 var bindAddr = flag.String("bind-addr", ":9169", "bind address for the metrics server")
 var metricsPath = flag.String("metrics-path", "/metrics", "path to metrics endpoint")
-var kafkaAddr = flag.String("kafka", "localhost:6667", "host:port for kafka socket")
+var kafkaAddr = flag.String("kafka", "localhost:9092", "host:port for kafka socket")
 var rawLevel = flag.String("log-level", "info", "log level")
 
 func main() {
