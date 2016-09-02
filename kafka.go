@@ -49,21 +49,14 @@ func (c *kafkaCollector) Describe(ch chan<- *prometheus.Desc) {
 func (c *kafkaCollector) Collect(ch chan<- prometheus.Metric) {
 	log.Info("Fetching metrics from Kafka")
 
-	var topics []string
-        var kafkaConsumer sarama.Consumer
-	var err error
-	var partitions []int32
-	var kClient  sarama.Client
-	var oldOffset int64
-	var newOffset int64
-        kafkaConsumer, err = sarama.NewConsumer(strings.Split(*kafkaAddr, ","), nil)
+	kafkaConsumer, err := sarama.NewConsumer(strings.Split(*kafkaAddr, ","), nil)
 	if err != nil {
 		log.Error("Failed to start Sarama consumer:", err)
 		ch <- prometheus.MustNewConstMetric(c.upIndicator, prometheus.GaugeValue, 0)
 		return
 	}
 	ch <- prometheus.MustNewConstMetric(c.upIndicator, prometheus.GaugeValue, 1)
-	topics, err = kafkaConsumer.Topics()
+	topics, err := kafkaConsumer.Topics()
 	if err !=nil {
 		log.Error("Failed to get list of topics")
 		ch <- prometheus.MustNewConstMetric(c.upIndicator, prometheus.GaugeValue, 0)
@@ -73,15 +66,15 @@ func (c *kafkaCollector) Collect(ch chan<- prometheus.Metric) {
 		if topic == "__consumer_offsets"{
 			continue
 		}
-		partitions, err = kafkaConsumer.Partitions(topic)
+		partitions, _ := kafkaConsumer.Partitions(topic)
 		ch <- prometheus.MustNewConstMetric(c.partitionsCount, prometheus.GaugeValue,float64(len(partitions)), topic)
 
 		for _, partition := range partitions {
-			kClient, _ = sarama.NewClient(strings.Split(*kafkaAddr, ","), nil)
+			kClient, _ := sarama.NewClient(strings.Split(*kafkaAddr, ","), nil)
 			offsetManager, _ :=sarama.NewOffsetManagerFromClient("zkexporter.om", kClient)
 			pom, _ := offsetManager.ManagePartition(topic, partition)
-			oldOffset, _ = pom.NextOffset()
-			newOffset, _ = kClient.GetOffset(topic, partition, sarama.OffsetNewest)
+			oldOffset, _ := pom.NextOffset()
+			newOffset, _ := kClient.GetOffset(topic, partition, sarama.OffsetNewest)
 			ch <- prometheus.MustNewConstMetric(c.messageCount, prometheus.GaugeValue,float64(newOffset - oldOffset), topic, strconv.Itoa(int(partition)))
 			pom.MarkOffset(newOffset, "already reported")
 			pom.Close()
