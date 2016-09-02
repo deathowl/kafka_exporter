@@ -70,13 +70,22 @@ func (c *kafkaCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 	ch <- prometheus.MustNewConstMetric(c.topicsCount, prometheus.GaugeValue, float64(len(topics)))
 	for _, topic := range topics{
+		if topic == "__consumer_offsets"{
+			continue
+		}
 		partitions, err = kafkaConsumer.Partitions(topic)
 		ch <- prometheus.MustNewConstMetric(c.partitionsCount, prometheus.GaugeValue,float64(len(partitions)), topic)
+
 		for _, partition := range partitions {
 			kClient, _ = sarama.NewClient(strings.Split(*kafkaAddr, ","), nil)
-			oldOffset, _ = kClient.GetOffset(topic, partition, sarama.OffsetOldest)
+			offsetManager, _ :=sarama.NewOffsetManagerFromClient("zkexporter.om", kClient)
+			pom, _ := offsetManager.ManagePartition(topic, partition)
+			oldOffset, _ = pom.NextOffset()
 			newOffset, _ = kClient.GetOffset(topic, partition, sarama.OffsetNewest)
 			ch <- prometheus.MustNewConstMetric(c.messageCount, prometheus.GaugeValue,float64(newOffset - oldOffset), topic, strconv.Itoa(int(partition)))
+			pom.MarkOffset(newOffset, "already reported")
+			pom.Close()
+			offsetManager.Close()
 			kClient.Close()
 		}
 	}
