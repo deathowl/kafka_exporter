@@ -1,0 +1,27 @@
+go: 1.6.3
+verbose: false
+repository:
+    path: github.com/deathowl/kafka_exporter
+build:
+    prefix: .
+    binaries:
+        - name: kafka_exporter
+          path: .
+    flags: -a -tags netgo
+    ldflags: |
+        -s
+        -X {{repoPath}}/version.Version={{.Version}}
+        -X {{repoPath}}/version.Revision={{.Revision}}
+        -X {{repoPath}}/version.Branch={{.Branch}}
+        -X {{repoPath}}/version.BuildUser={{user}}@{{host}}
+        -X {{repoPath}}/version.BuildDate={{date "20160902-15:04:05"}}
+tarball:
+    prefix: .
+crossbuild:
+    platforms:
+        - linux/amd64
+        - linux/386
+        - linux/arm
+        - linux/arm64
+        - linux/ppc64
+        - linux/ppc64le
