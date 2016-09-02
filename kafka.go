@@ -13,6 +13,7 @@ type kafkaCollector struct {
 	upIndicator *prometheus.Desc
 	topicsCount *prometheus.Desc
 	partitionsCount * prometheus.Desc
+	messageCount *prometheus.Desc
 }
 func init() {
 	prometheus.MustRegister(NewKafkaCollector())
@@ -34,6 +35,7 @@ func NewKafkaCollector() *kafkaCollector {
 		upIndicator: prometheus.NewDesc("kafka_up", "Exporter successful", nil, nil),
 		topicsCount: prometheus.NewDesc("kafka_topics", "Count of topics", nil, nil),
 		partitionsCount: prometheus.NewDesc("kafka_partitions", "Count of partitions per topic",  []string{"topic"}, nil),
+		messageCount: prometheus.NewDesc("kafka_messages", "Count of messages per topic per partition",  []string{"topic", "partition"}, nil),
 	}
 }
 
@@ -41,6 +43,7 @@ func (c *kafkaCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.upIndicator
 	ch <- c.topicsCount
 	ch <- c.partitionsCount
+	ch <- c.messageCount
 }
 
 func (c *kafkaCollector) Collect(ch chan<- prometheus.Metric) {
@@ -50,7 +53,9 @@ func (c *kafkaCollector) Collect(ch chan<- prometheus.Metric) {
         var kafkaConsumer sarama.Consumer
 	var err error
 	var partitions []int32
-	var partitionConsumer  sarama.PartitionConsumer
+	var kClient  sarama.Client
+	var oldOffset int64
+	var newOffset int64
         kafkaConsumer, err = sarama.NewConsumer(strings.Split(*kafkaAddr, ","), nil)
 	if err != nil {
 		log.Error("Failed to start Sarama consumer:", err)
@@ -68,14 +73,11 @@ func (c *kafkaCollector) Collect(ch chan<- prometheus.Metric) {
 		partitions, err = kafkaConsumer.Partitions(topic)
 		ch <- prometheus.MustNewConstMetric(c.partitionsCount, prometheus.GaugeValue,float64(len(partitions)), topic)
 		for _, partition := range partitions {
-			partitionConsumer, err = kafkaConsumer.ConsumePartition(topic, partition, sarama.OffsetOldest)
-			if err!=nil {
-				log.Error(err)
-			}
-			//for msg := range partitionConsumer.Messages() {	
-			//	log.Info(msg)
-			//}
-			partitionConsumer.Close()
+			kClient, _ = sarama.NewClient(strings.Split(*kafkaAddr, ","), nil)
+			oldOffset, _ = kClient.GetOffset(topic, partition, sarama.OffsetOldest)
+			newOffset, _ = kClient.GetOffset(topic, partition, sarama.OffsetNewest)
+			ch <- prometheus.MustNewConstMetric(c.messageCount, prometheus.GaugeValue,float64(newOffset - oldOffset), topic, strconv.Itoa(int(partition)))
+			kClient.Close()
 		}
 	}
 	kafkaConsumer.Close()
