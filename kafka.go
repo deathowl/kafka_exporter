@@ -19,9 +19,6 @@ func init() {
 	prometheus.MustRegister(NewKafkaCollector())
 
 }
-func parseLabels(s string) []string {
-	return []string{s}
-}
 func parseFloatOrZero(s string) float64 {
 	res, err := strconv.ParseFloat(s, 64)
 	if err != nil {
