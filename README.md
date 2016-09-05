@@ -1,5 +1,6 @@
 ** Prometheus Kafka Exporter**
 
+
 *Exposes basic kafka metrics to prometheus*
 
 Args:
@@ -17,4 +18,7 @@ Args:
 * kafka_topics:  Number of Topics
 * kafka_up  Status of Kafka Server
 
+**Before first run**
 
+Dont forget to add consumer group, and allow acces to it via kafka ACL
+ ./kafka-acls.sh --authorizer kafka.security.auth.SimpleAclAuthorizer --authorizer-properties zookeeper.connect=zookeeper.host:2181 --allow-principal User:* --operation All --topic test --group zkexporter.om --add 
