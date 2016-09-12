@@ -6,8 +6,11 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/Shopify/sarama"
-)
+        "github.com/deathowl/go-metrics-prometheus"
+	"time"
 
+)
+var saramaConfig *sarama.Config
 
 type kafkaCollector struct {
 	upIndicator *prometheus.Desc
@@ -17,7 +20,9 @@ type kafkaCollector struct {
 }
 func init() {
 	prometheus.MustRegister(NewKafkaCollector())
-
+	saramaConfig = sarama.NewConfig()
+	pClient := prometheusmetrics.NewPrometheusProvider(saramaConfig.MetricRegistry, "kafka", "broker", prometheus.DefaultRegisterer, 1*time.Second)
+	go pClient.UpdatePrometheusMetrics()
 }
 func parseFloatOrZero(s string) float64 {
 	res, err := strconv.ParseFloat(s, 64)
@@ -46,6 +51,7 @@ func (c *kafkaCollector) Describe(ch chan<- *prometheus.Desc) {
 func (c *kafkaCollector) Collect(ch chan<- prometheus.Metric) {
 	log.Info("Fetching metrics from Kafka")
 
+	kClient, _ := sarama.NewClient(strings.Split(*kafkaAddr, ","), saramaConfig)
 	kafkaConsumer, err := sarama.NewConsumer(strings.Split(*kafkaAddr, ","), nil)
 	if err != nil {
 		log.Error("Failed to start Sarama consumer:", err)
@@ -67,7 +73,6 @@ func (c *kafkaCollector) Collect(ch chan<- prometheus.Metric) {
 		ch <- prometheus.MustNewConstMetric(c.partitionsCount, prometheus.GaugeValue,float64(len(partitions)), topic)
 
 		for _, partition := range partitions {
-			kClient, _ := sarama.NewClient(strings.Split(*kafkaAddr, ","), nil)
 			offsetManager, _ :=sarama.NewOffsetManagerFromClient("zkexporter.om", kClient)
 			pom, _ := offsetManager.ManagePartition(topic, partition)
 			oldOffset, _ := pom.NextOffset()
@@ -76,8 +81,8 @@ func (c *kafkaCollector) Collect(ch chan<- prometheus.Metric) {
 			pom.MarkOffset(newOffset, "already reported")
 			pom.Close()
 			offsetManager.Close()
-			kClient.Close()
 		}
 	}
 	kafkaConsumer.Close()
+	kClient.Close()
 }
