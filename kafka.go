@@ -1,23 +1,24 @@
 package main
 
 import (
-        "strconv"
-	"strings"
-	log "github.com/Sirupsen/logrus"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/Shopify/sarama"
-        "github.com/deathowl/go-metrics-prometheus"
+	log "github.com/Sirupsen/logrus"
+	"github.com/deathowl/go-metrics-prometheus"
+	"github.com/prometheus/client_golang/prometheus"
+	"strconv"
+	"strings"
 	"time"
-
 )
+
 var saramaConfig *sarama.Config
 
 type kafkaCollector struct {
-	upIndicator *prometheus.Desc
-	topicsCount *prometheus.Desc
-	partitionsCount * prometheus.Desc
-	messageCount *prometheus.Desc
+	upIndicator     *prometheus.Desc
+	topicsCount     *prometheus.Desc
+	partitionsCount *prometheus.Desc
+	messageCount    *prometheus.Desc
 }
+
 func init() {
 	prometheus.MustRegister(NewKafkaCollector())
 	saramaConfig = sarama.NewConfig()
@@ -34,10 +35,10 @@ func parseFloatOrZero(s string) float64 {
 }
 func NewKafkaCollector() *kafkaCollector {
 	return &kafkaCollector{
-		upIndicator: prometheus.NewDesc("kafka_up", "Exporter successful", nil, nil),
-		topicsCount: prometheus.NewDesc("kafka_topics", "Count of topics", nil, nil),
-		partitionsCount: prometheus.NewDesc("kafka_partitions", "Count of partitions per topic",  []string{"topic"}, nil),
-		messageCount: prometheus.NewDesc("kafka_messages", "Count of messages per topic per partition",  []string{"topic", "partition"}, nil),
+		upIndicator:     prometheus.NewDesc("kafka_up", "Exporter successful", nil, nil),
+		topicsCount:     prometheus.NewDesc("kafka_topics", "Count of topics", nil, nil),
+		partitionsCount: prometheus.NewDesc("kafka_partitions", "Count of partitions per topic", []string{"topic"}, nil),
+		messageCount:    prometheus.NewDesc("kafka_messages", "Count of messages per topic per partition", []string{"topic", "partition"}, nil),
 	}
 }
 
@@ -60,24 +61,24 @@ func (c *kafkaCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 	ch <- prometheus.MustNewConstMetric(c.upIndicator, prometheus.GaugeValue, 1)
 	topics, err := kafkaConsumer.Topics()
-	if err !=nil {
+	if err != nil {
 		log.Error("Failed to get list of topics")
 		ch <- prometheus.MustNewConstMetric(c.upIndicator, prometheus.GaugeValue, 0)
 	}
 	ch <- prometheus.MustNewConstMetric(c.topicsCount, prometheus.GaugeValue, float64(len(topics)))
-	for _, topic := range topics{
-		if topic == "__consumer_offsets"{
+	for _, topic := range topics {
+		if topic == "__consumer_offsets" {
 			continue
 		}
 		partitions, _ := kafkaConsumer.Partitions(topic)
-		ch <- prometheus.MustNewConstMetric(c.partitionsCount, prometheus.GaugeValue,float64(len(partitions)), topic)
+		ch <- prometheus.MustNewConstMetric(c.partitionsCount, prometheus.GaugeValue, float64(len(partitions)), topic)
 
 		for _, partition := range partitions {
-			offsetManager, _ :=sarama.NewOffsetManagerFromClient("zkexporter.om", kClient)
+			offsetManager, _ := sarama.NewOffsetManagerFromClient("zkexporter.om", kClient)
 			pom, _ := offsetManager.ManagePartition(topic, partition)
 			oldOffset, _ := pom.NextOffset()
 			newOffset, _ := kClient.GetOffset(topic, partition, sarama.OffsetNewest)
-			ch <- prometheus.MustNewConstMetric(c.messageCount, prometheus.GaugeValue,float64(newOffset - oldOffset), topic, strconv.Itoa(int(partition)))
+			ch <- prometheus.MustNewConstMetric(c.messageCount, prometheus.GaugeValue, float64(newOffset-oldOffset), topic, strconv.Itoa(int(partition)))
 			pom.MarkOffset(newOffset, "already reported")
 			pom.Close()
 			offsetManager.Close()

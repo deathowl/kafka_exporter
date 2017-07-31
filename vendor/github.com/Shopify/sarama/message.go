@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/eapache/go-xerial-snappy"
+	"github.com/pierrec/lz4"
 )
 
 // CompressionCodec represents the various compression codecs recognized by Kafka in messages.
@@ -20,6 +21,7 @@ const (
 	CompressionNone   CompressionCodec = 0
 	CompressionGZIP   CompressionCodec = 1
 	CompressionSnappy CompressionCodec = 2
+	CompressionLZ4    CompressionCodec = 3
 )
 
 type Message struct {
@@ -31,6 +33,7 @@ type Message struct {
 	Timestamp time.Time        // the timestamp of the message (version 1+ only)
 
 	compressedCache []byte
+	compressedSize  int // used for computing the compression ratio metrics
 }
 
 func (m *Message) encode(pe packetEncoder) error {
@@ -42,7 +45,15 @@ func (m *Message) encode(pe packetEncoder) error {
 	pe.putInt8(attributes)
 
 	if m.Version >= 1 {
-		pe.putInt64(m.Timestamp.UnixNano() / int64(time.Millisecond))
+		timestamp := int64(-1)
+
+		if !m.Timestamp.Before(time.Unix(0, 0)) {
+			timestamp = m.Timestamp.UnixNano() / int64(time.Millisecond)
+		} else if !m.Timestamp.IsZero() {
+			return PacketEncodingError{fmt.Sprintf("invalid timestamp (%v)", m.Timestamp)}
+		}
+
+		pe.putInt64(timestamp)
 	}
 
 	err := pe.putBytes(m.Key)
@@ -74,9 +85,23 @@ func (m *Message) encode(pe packetEncoder) error {
 			tmp := snappy.Encode(m.Value)
 			m.compressedCache = tmp
 			payload = m.compressedCache
+		case CompressionLZ4:
+			var buf bytes.Buffer
+			writer := lz4.NewWriter(&buf)
+			if _, err = writer.Write(m.Value); err != nil {
+				return err
+			}
+			if err = writer.Close(); err != nil {
+				return err
+			}
+			m.compressedCache = buf.Bytes()
+			payload = m.compressedCache
+
 		default:
 			return PacketEncodingError{fmt.Sprintf("unsupported compression codec (%d)", m.Codec)}
 		}
+		// Keep in mind the compressed payload size for metric gathering
+		m.compressedSize = len(payload)
 	}
 
 	if err = pe.putBytes(payload); err != nil {
@@ -108,7 +133,15 @@ func (m *Message) decode(pd packetDecoder) (err error) {
 		if err != nil {
 			return err
 		}
-		m.Timestamp = time.Unix(millis/1000, (millis%1000)*int64(time.Millisecond))
+
+		// negative timestamps are invalid, in these cases we should return
+		// a zero time
+		timestamp := time.Time{}
+		if millis >= 0 {
+			timestamp = time.Unix(millis/1000, (millis%1000)*int64(time.Millisecond))
+		}
+
+		m.Timestamp = timestamp
 	}
 
 	m.Key, err = pd.getBytes()
@@ -120,6 +153,10 @@ func (m *Message) decode(pd packetDecoder) (err error) {
 	if err != nil {
 		return err
 	}
+
+	// Required for deep equal assertion during tests but might be useful
+	// for future metrics about the compression ratio in fetch requests
+	m.compressedSize = len(m.Value)
 
 	switch m.Codec {
 	case CompressionNone:
@@ -148,6 +185,18 @@ func (m *Message) decode(pd packetDecoder) (err error) {
 		if err := m.decodeSet(); err != nil {
 			return err
 		}
+	case CompressionLZ4:
+		if m.Value == nil {
+			break
+		}
+		reader := lz4.NewReader(bytes.NewReader(m.Value))
+		if m.Value, err = ioutil.ReadAll(reader); err != nil {
+			return err
+		}
+		if err := m.decodeSet(); err != nil {
+			return err
+		}
+
 	default:
 		return PacketDecodingError{fmt.Sprintf("invalid compression specified (%d)", m.Codec)}
 	}

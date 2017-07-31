@@ -3,10 +3,10 @@
 	"ignore": "test",
 	"package": [
 		{
-			"checksumSHA1": "WQqP62ZRxFoSKUHY5DCRbklzHLg=",
+			"checksumSHA1": "+Jp0tVXfQ1TM8T+oun82oJtME5U=",
 			"path": "github.com/Shopify/sarama",
-			"revision": "482c471fbf73dc2ac66945187f811581f008c24a",
-			"revisionTime": "2016-09-07T20:18:35Z"
+			"revision": "2fd980e23bdcbb8edeb78fc704de0c39a6567ffc",
+			"revisionTime": "2016-08-29T20:23:21Z"
 		},
 		{
 			"checksumSHA1": "2avCvSn0XonfApKKuTMyiQmk7s0=",
@@ -27,10 +27,10 @@
 			"revisionTime": "2016-09-07T16:21:46Z"
 		},
 		{
-			"checksumSHA1": "9t7TuLKE8LW6PVR3EOG/8lX3zDw=",
-			"path": "github.com/deathowl/kafka_exporter",
-			"revision": "a56b6d9b14c4878766a24f77f22dd4cc9fd6ca23",
-			"revisionTime": "2016-09-05T15:33:47Z"
+			"checksumSHA1": "+9c0WKRHkJjE4GhPwk+f6t1vfGs=",
+			"path": "github.com/deathowl/go-metrics-prometheus",
+			"revision": "091131e49c335a452af504b8104ac262da41a6e9",
+			"revisionTime": "2016-07-18T16:53:37Z"
 		},
 		{
 			"checksumSHA1": "y2Kh4iPlgCPXSGTCcFpzePYdzzg=",
