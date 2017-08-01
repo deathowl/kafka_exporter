@@ -67,7 +67,7 @@ func (c *kafkaCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 	ch <- prometheus.MustNewConstMetric(c.topicsCount, prometheus.GaugeValue, float64(len(topics)))
 	for _, topic := range topics {
-		if topic == "__consumer_offsets" {
+		if topic == "__consumer_offsets" || topic == "ATLAS_ENTITIES" || topic == "ATLAS_HOOK" {
 			continue
 		}
 		partitions, _ := kafkaConsumer.Partitions(topic)

@@ -75,6 +75,18 @@
 			"revisionTime": "2016-04-24T11:30:07Z"
 		},
 		{
+			"checksumSHA1": "FGg99nQ56Fo3radSCuU1AeEUJug=",
+			"path": "github.com/pierrec/lz4",
+			"revision": "5a3d2245f97fc249850e7802e3c01fad02a1c316",
+			"revisionTime": "2016-07-15T05:43:45Z"
+		},
+		{
+			"checksumSHA1": "zPWRjzsPeXCoqmidIcJtHbvrvRs=",
+			"path": "github.com/pierrec/xxHash/xxHash32",
+			"revision": "a0006b13c722f7f12368c00a3d3c2ae8a999a0c6",
+			"revisionTime": "2016-07-15T05:43:45Z"
+		},
+		{
 			"checksumSHA1": "OiV+xm/lsxmVkmQXHitpsbXPUMk=",
 			"path": "github.com/prometheus/client_golang/prometheus",
 			"revision": "8aae34f3ffc9a93c75efeaad87bb192aa7750900",
